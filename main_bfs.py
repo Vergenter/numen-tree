@@ -62,7 +62,7 @@ class DAGSN:
             for i in range(tier+1,(len(new_tier_bounds))):
                 new_tier_bounds[i]+=1
             # add new node in newly created place
-            new_nodes[new_tier_bounds[1]-1]=value
+            new_nodes[new_tier_bounds[tier+1]-1]=value
         return DAGSN(new_nodes,new_tier_bounds)
 
     def add_node_to_tier_1(self):
@@ -123,15 +123,13 @@ class DAGSN:
         ordered_tiers = []
 
         # add all first tiers indegree for connection to root node(that doesn't exist)
-        # as all first tiers are same we can write them as single value
+        # as all first tiers are same we can write them as single value 
         ordered_tiers.append(len([1 for node in self.nodes[self.tier_bounds[0]:self.tier_bounds[1]] if node]))
-        
-
+        ordered_tiers.append('|')
         # add sorted indegree for all next tiers
-        for tier,(start_tier, end_tier) in enumerate(zip(self.tier_bounds[1:-1], self.tier_bounds[2:])):
+        for tier,(start_tier, end_tier) in enumerate(zip(self.tier_bounds[1:-1], self.tier_bounds[2:])): 
+            ordered_tiers.extend(sorted([sum(bit(node,node_idx)>0 for node in self.nodes[start_tier:end_tier]) for node_idx in range(self.tier_bounds[tier],self.tier_bounds[tier+1]) if self.nodes[node_idx]])) 
             ordered_tiers.append('|')
-            for result in sorted(map(lambda node: count_set_bits(node,self.tier_bounds[tier],self.tier_bounds[tier+1]),self.nodes[start_tier:end_tier])):
-                ordered_tiers.append(result)
 
         return "".join([str(node) for node in ordered_tiers])
 
