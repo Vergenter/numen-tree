@@ -40,31 +40,44 @@ class DAGSN:
         self.nodes:list[int] = nodes
         self.tier_bounds:list[int] = tier_bounds
 
-    def insert_node(self,tier:int,value:int=FIRST_TIER_NODE_VALUE):
-        """tier is counted from 0"""
+
+    def insert_node(self,tier:int,value:int=FIRST_TIER_NODE_VALUE)-> "DAGSN":
+        """Insert a new node into the specified tier with the given value."""
+        if tier>=len(self.tier_bounds)-1:
+            raise ValueError("Tier too high, cannot insert node.")
         new_nodes = self.nodes.copy()
         new_tier_bounds= self.tier_bounds.copy()
-        # reserverd node limit not reached
-        if not new_nodes[new_tier_bounds[tier+1]-1]:
+        def is_tier_full(next_tier_bound:int, nodes:list[int]):
+            return nodes[next_tier_bound-1]>0
+        try:
+            tier_after_empty_tier_bound = next((tier_for_end_bound for tier_for_end_bound in range(tier+1,len(new_tier_bounds)) if not is_tier_full(new_tier_bounds[tier_for_end_bound],new_nodes)))
+        except StopIteration:
+            raise ValueError("Added too many nodes, MAX_NODES exceeded.")
+        # Reserverd node limit not reached
+        if tier_after_empty_tier_bound==tier+1:
+            # Find the position to add the new node by checking if the next node is set
             # can be optimized to binary search
             for x in range(new_tier_bounds[tier+1]-1,new_tier_bounds[tier],-1):
-                # add node to x position if next node is set
                 if new_nodes[x-1]>0:
                     new_nodes[x]=value
                     break
             else: 
-                # add node to new_tier_bounds[tier] position if there is no nodes in tier
+                # If no nodes in the tier, add the new node at the start of the tier
                 new_nodes[new_tier_bounds[tier]]= value
-        else: # reserverd node limit reached
-            # move all nodes of tier+1 to make place for new node of tier
-            for i in range(len(new_nodes)-1,new_tier_bounds[tier+1],-1):
+        else: 
+            # Reserved node limit reached, move all nodes of tier+1 to make space for new node of tier
+            new_node_insert_position = new_tier_bounds[tier+1]
+            for i in range(new_tier_bounds[tier_after_empty_tier_bound]-1,new_node_insert_position,-1):
                 if new_nodes[i-1]:
-                    new_nodes[i] = insert_0_bit(new_nodes[i-1],new_tier_bounds[tier+1])
-            # move parents bits to work correctly with move nodes
-            for i in range(tier+1,(len(new_tier_bounds))):
+                     # Move parents bits to work correctly with moved nodes
+                    new_nodes[i] = insert_0_bit(new_nodes[i-1],new_node_insert_position)
+            for i in range(new_tier_bounds[tier_after_empty_tier_bound],len(new_nodes)):
+                # Move parents bits to work correctly with moved nodes
+                new_nodes[i] = insert_0_bit(new_nodes[i],new_node_insert_position)
+            # Add new node in newly created place
+            new_nodes[new_node_insert_position]=value
+            for i in range(tier+1,tier_after_empty_tier_bound):
                 new_tier_bounds[i]+=1
-            # add new node in newly created place
-            new_nodes[new_tier_bounds[tier+1]-1]=value
         return DAGSN(new_nodes,new_tier_bounds)
 
     def add_node_to_tier_1(self)-> "DAGSN":
