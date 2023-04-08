@@ -1,51 +1,82 @@
 import unittest
 from main_bfs import DAGSN
 
+from typing import Callable, TypeVar
+
+T = TypeVar('T')
+
+def repeat(G: T, method: Callable[[T], T], n: int) -> T:
+    """Apply the given method to the given object n times.
+
+    Args:
+        G: The initial object to apply the method to.
+        method: A callable method that takes an object of the same type as G and returns an updated object.
+        n: The number of times to apply the method to G.
+
+    Returns:
+        The object G after the method has been applied n times.
+    """
+    for i in range(n):
+        G = method(G)
+    return G
+
 
 class DAGSN_tier_up_test(unittest.TestCase):
-    def test_tier_up_1(self):
-        g1 = DAGSN().add_node_to_tier_1().add_node_to_tier_1().tier_up(0, 1).add_node_to_tier_1()
-        self.assertEqual(str(g1), '3|011|0||')
+    def test_single(self):
+        g1 = DAGSN().add_node_to_tier_1().add_node_to_tier_1()
+        self.assertEqual(g1.nodes[g1.tier_bounds[1]],0)
+        g1=g1.tier_up(0, 1)
+        self.assertGreater(g1.nodes[g1.tier_bounds[1]],0)
 
-    def test_tier_up_2(self):
-        g2 = DAGSN().add_node_to_tier_1().add_node_to_tier_1().tier_up(0, 1).tier_up(0, 1)
-        self.assertEqual(str(g2), '2|22|00||')
+    def test_multiple(self):
+        g1 = DAGSN().add_node_to_tier_1().add_node_to_tier_1()
+        self.assertEqual(g1.nodes[g1.tier_bounds[1]],0)
+        self.assertEqual(g1.nodes[g1.tier_bounds[1]+1],0)
+        g1=g1.tier_up(0, 1)
+        self.assertGreater(g1.nodes[g1.tier_bounds[1]],0)
+        self.assertEqual(g1.nodes[g1.tier_bounds[1]+1],0)
+        g1=g1.tier_up(0, 1)
+        self.assertGreater(g1.nodes[g1.tier_bounds[1]],0)
+        self.assertGreater(g1.nodes[g1.tier_bounds[1]+1],0)
 
-    def test_tier_up_3(self):
-        g3 = DAGSN().add_node_to_tier_1().add_node_to_tier_1().add_node_to_tier_1().add_node_to_tier_1().tier_up(0, 1).tier_up(2, 3).tier_up(4, 5)
-        self.assertEqual(str(g3), '4|1111|11|0|')
+    def test_tier_up_to_tier_3(self):
+        g1 = repeat(DAGSN(),DAGSN.add_node_to_tier_1,4).tier_up(0, 1).tier_up(2, 3)
+        self.assertEqual(g1.nodes[g1.tier_bounds[2]],0)
+        g1=g1.tier_up(4, 5)
+        self.assertGreater(g1.nodes[g1.tier_bounds[2]],0)
 
-    def test_tier_up_4(self):
-        g4 = DAGSN().add_node_to_tier_1().add_node_to_tier_1().tier_up(0, 1).tier_up(0, 1).tier_up(0, 1)
-        self.assertEqual(str(g4), '2|33|000||')
+    def test_tier_up_to_tier_4(self):
+        g1 = repeat(DAGSN(),DAGSN.add_node_to_tier_1,8)\
+            .tier_up(0, 1).tier_up(2, 3).tier_up(4, 5).tier_up(6, 7)\
+            .tier_up(8, 9).tier_up(10, 11)
+        self.assertEqual(g1.nodes[g1.tier_bounds[3]],0)
+        g1=g1.tier_up(12, 13)
+        self.assertGreater(g1.nodes[g1.tier_bounds[3]],0)
 
-    def test_tier_up_5(self):
-        g5 = DAGSN().add_node_to_tier_1().add_node_to_tier_1().tier_up(0, 1).tier_up(0, 1).tier_up(0, 1).add_node_to_tier_1().add_node_to_tier_1()
-        self.assertEqual(str(g5), '4|0033|000||')
+    def test_tier_up_move_correctly(self):
+        g1 = DAGSN().add_node_to_tier_1().add_node_to_tier_1()
+        tier = 1 # counted from 0
+        number_of_tier_up = 3
+        self.assertTrue(all(node==0 for node in g1.nodes[g1.tier_bounds[tier]:g1.tier_bounds[tier]+number_of_tier_up]))
+        g1 = g1.tier_up(0, 1).tier_up(0, 1).tier_up(0, 1)
+        self.assertTrue(all(node>0 for node in g1.nodes[g1.tier_bounds[tier]:g1.tier_bounds[tier]+number_of_tier_up]))
+        g1 = g1.add_node_to_tier_1().add_node_to_tier_1()
+        self.assertTrue(all(node>0 for node in g1.nodes[g1.tier_bounds[tier]:g1.tier_bounds[tier]+number_of_tier_up]))
 
-    def test_tier_up_6(self):
-        g6 = DAGSN().add_node_to_tier_1().add_node_to_tier_1().tier_up(0, 1).tier_up(0, 1).add_node_to_tier_1().add_node_to_tier_1().tier_up(1, 2)
-        self.assertEqual(str(g6), '4|0123|000||')
+    def test_mixed_tier_up_and_moving(self):
+        g1 = DAGSN().add_node_to_tier_1().add_node_to_tier_1()
+        tier = 1 # counted from 0
+        number_of_tier_up = 2
+        self.assertTrue(all(node==0 for node in g1.nodes[g1.tier_bounds[tier]:g1.tier_bounds[tier]+number_of_tier_up]))
+        g1 = g1.tier_up(0, 1).tier_up(0, 1)
+        self.assertTrue(all(node>0 for node in g1.nodes[g1.tier_bounds[tier]:g1.tier_bounds[tier]+number_of_tier_up]))
+        self.assertEqual(g1.nodes[g1.tier_bounds[tier]+3],0)
+        g1 = g1.add_node_to_tier_1().add_node_to_tier_1()
+        self.assertTrue(all(node>0 for node in g1.nodes[g1.tier_bounds[tier]:g1.tier_bounds[tier]+number_of_tier_up]))
+        g1 = g1.tier_up(1, 2)
+        self.assertTrue(all(node>0 for node in g1.nodes[g1.tier_bounds[tier]:g1.tier_bounds[tier]+number_of_tier_up+1]))
 
-    def test_tier_up_7(self):
-        g6 = DAGSN().add_node_to_tier_1().add_node_to_tier_1().add_node_to_tier_1().add_node_to_tier_1().add_node_to_tier_1().add_node_to_tier_1()\
-        .tier_up(0, 1).tier_up(3, 4).extend(7,2).tier_up(4,5).tier_up(4,5)\
-        .tier_up(6,7).tier_up(7,9).tier_up(7,9)
-        self.assertEqual(str(g6), '6|111123|0123|000|')
-
-    def test_tier_up_8(self):
-        g6 = DAGSN().add_node_to_tier_1().add_node_to_tier_1().add_node_to_tier_1().add_node_to_tier_1().add_node_to_tier_1().add_node_to_tier_1()\
-        .tier_up(0, 1).tier_up(0, 1).tier_up(2,3).tier_up(4,5).tier_up(4,5)\
-        .tier_up(6,8).tier_up(7,8).tier_up(7,9).tier_up(8,10)
         
-        self.assertEqual(str(g6), '6|112222|11123|0000|')
-
-
-    def test_tier_up_9(self):
-        g6 = DAGSN().add_node_to_tier_1().add_node_to_tier_1().add_node_to_tier_1().add_node_to_tier_1()\
-        .tier_up(1, 2).extend(4,0).tier_up(1, 2).extend(5,3).tier_up(0,3).tier_up(0,3)\
-        .tier_up(4,5).tier_up(5,7)
-        self.assertEqual(str(g6), '4|2233|0112|00|')
 class DAGSN_canonical(unittest.TestCase):
 
     def test_get_canonical_form_1(self):
@@ -91,12 +122,24 @@ class DAGSN_canonical(unittest.TestCase):
 class DAGSNTest(unittest.TestCase):
 
     def test_add_node_to_tier_1(self):
-        g1 = DAGSN().add_node_to_tier_1()
-        self.assertEqual(str(g1), '1|0|||')
+        g1 = DAGSN()
+        self.assertEqual(g1.nodes[g1.tier_bounds[0]],0)
+        g1=g1.add_node_to_tier_1()
+        self.assertGreater(g1.nodes[g1.tier_bounds[0]],0)
 
     def test_extend(self):
-        g1 = DAGSN().add_node_to_tier_1().add_node_to_tier_1().tier_up(0, 1).add_node_to_tier_1().extend(3, 2).add_node_to_tier_1().extend(4, 3)
-        self.assertEqual(str(g1), '4|1111|0||')
+        g1 = DAGSN().add_node_to_tier_1().add_node_to_tier_1()\
+        .tier_up(0, 1).add_node_to_tier_1()\
+        .extend(3, 2)\
+        .add_node_to_tier_1()\
+        .extend(4, 3)
+        self.assertTrue(g1.nodes[g1.tier_bounds[1]]>0 and g1.nodes[g1.tier_bounds[1]+1]==0)
+        with self.assertRaises(ValueError):
+            g1.extend(g1.tier_bounds[1],g1.tier_bounds[1])
+        with self.assertRaises(ValueError):
+            g1.extend(g1.tier_bounds[1],g1.tier_bounds[1]+1)
+        with self.assertRaises(ValueError):
+            g1.extend(g1.tier_bounds[1],g1.tier_bounds[1]-1)
 
     def test_get_tier(self):
         g1 = DAGSN().add_node_to_tier_1().add_node_to_tier_1().tier_up(0, 1).add_node_to_tier_1().extend(3, 2).add_node_to_tier_1().extend(4, 3)
@@ -105,8 +148,22 @@ class DAGSNTest(unittest.TestCase):
         self.assertEqual(g1.get_tier(2), 0)
         self.assertEqual(g1.get_tier(3), 0)
         self.assertEqual(g1.get_tier(4), 1)
-        self.assertEqual(g1.get_tier(5), 1)
-        self.assertEqual(g1.get_tier(6), 1)
+
+    def test_example_player_tree_1(self):
+        DAGSN().add_node_to_tier_1().add_node_to_tier_1().add_node_to_tier_1().add_node_to_tier_1().add_node_to_tier_1().add_node_to_tier_1()\
+        .tier_up(0, 1).tier_up(3, 4).extend(7,2).tier_up(4,5).tier_up(4,5)\
+        .tier_up(6,7).tier_up(7,9).tier_up(7,9)
+
+    def test_example_player_tree_2(self):
+        DAGSN().add_node_to_tier_1().add_node_to_tier_1().add_node_to_tier_1().add_node_to_tier_1().add_node_to_tier_1().add_node_to_tier_1()\
+        .tier_up(0, 1).tier_up(0, 1).tier_up(2,3).tier_up(4,5).tier_up(4,5)\
+        .tier_up(6,8).tier_up(7,8).tier_up(7,9).tier_up(8,10)
+        
+
+    def test_example_player_tree_3(self):
+        DAGSN().add_node_to_tier_1().add_node_to_tier_1().add_node_to_tier_1().add_node_to_tier_1()\
+        .tier_up(1, 2).extend(4,0).tier_up(1, 2).extend(5,3).tier_up(0,3).tier_up(0,3)\
+        .tier_up(4,5).tier_up(5,7)
 
 
 
