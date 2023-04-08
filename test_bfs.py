@@ -102,20 +102,42 @@ class DAGSN_canonical(unittest.TestCase):
     def test_get_canonical_form_5(self):
         g1= DAGSN().add_node_to_tier_1().add_node_to_tier_1().add_node_to_tier_1().add_node_to_tier_1().add_node_to_tier_1().add_node_to_tier_1().add_node_to_tier_1()\
             .tier_up(0, 1).tier_up(2, 3).tier_up(4, 5).extend(9,6)\
-            .tier_up(7,8)
+            .tier_up(7,8) # tier_up skill without extension
         g2= DAGSN().add_node_to_tier_1().add_node_to_tier_1().add_node_to_tier_1().add_node_to_tier_1().add_node_to_tier_1().add_node_to_tier_1().add_node_to_tier_1()\
             .tier_up(0, 1).tier_up(2, 3).tier_up(4, 5).extend(9,6)\
-            .tier_up(8,9)
+            .tier_up(8,9) # tier_up skill with extension
         self.assertNotEqual(str(g1),str(g2))
 
     def test_get_canonical_form_6(self):
         g1= DAGSN().add_node_to_tier_1().add_node_to_tier_1().add_node_to_tier_1().add_node_to_tier_1().add_node_to_tier_1().add_node_to_tier_1()\
             .tier_up(0, 1).tier_up(0, 1).tier_up(2, 3).tier_up(4, 5)\
-            .tier_up(6,8)
+            .tier_up(6,8) # tier_up skill that have exactly same copy
         
         g2= DAGSN().add_node_to_tier_1().add_node_to_tier_1().add_node_to_tier_1().add_node_to_tier_1().add_node_to_tier_1().add_node_to_tier_1()\
             .tier_up(0, 1).tier_up(0, 1).tier_up(2, 3).tier_up(4, 5)\
-            .tier_up(8,9)
+            .tier_up(8,9) # tier_up skills that are unique
+        self.assertNotEqual(str(g1),str(g2))
+
+    def test_get_canonical_form_7(self):
+        # test if structural differences are differenciated
+        g1= DAGSN().add_node_to_tier_1().add_node_to_tier_1().add_node_to_tier_1().add_node_to_tier_1()\
+            .tier_up(0, 1).extend(4, 2).tier_up(2, 3).tier_up(1, 3) # both tier up have different node from tier up with extension
+        
+        g2= DAGSN().add_node_to_tier_1().add_node_to_tier_1().add_node_to_tier_1().add_node_to_tier_1()\
+            .tier_up(0, 1).extend(4, 2).tier_up(0, 2).tier_up(1, 3) # one tier up contained in other with extension
+        self.assertNotEqual(str(g1),str(g2))
+
+    def test_get_canonical_form_8(self):
+        # test if structural differences are differenciated between multiple tier tier3 tier to tier4 diff in tier 2
+        g1= repeat(DAGSN(),DAGSN.add_node_to_tier_1,13)\
+            .tier_up(0,1).extend(13,2).tier_up(3,4).tier_up(5,6).tier_up(7,8).tier_up(9,10).tier_up(11,12)\
+            .tier_up(13,14).tier_up(15,16).tier_up(17,18)\
+            .tier_up(19,20) # tier up from skill that tier_up from extended node
+            
+        g2= repeat(DAGSN(),DAGSN.add_node_to_tier_1,13)\
+            .tier_up(0,1).extend(13,2).tier_up(3,4).tier_up(5,6).tier_up(7,8).tier_up(9,10).tier_up(11,12)\
+            .tier_up(13,14).tier_up(15,16).tier_up(17,18)\
+            .tier_up(20,21) # tier up from tier ups that aren't from extended node
         self.assertNotEqual(str(g1),str(g2))
 
 
