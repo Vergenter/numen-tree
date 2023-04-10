@@ -77,8 +77,10 @@ class DAGSN_tier_up_test(unittest.TestCase):
         self.assertTrue(all(node>0 for node in g1.nodes[g1.tier_bounds[tier]:g1.tier_bounds[tier]+number_of_tier_up+1]))
 
     def test_tier_up_bases(self):
-        g1 = DAGSN().add_node_to_tier_1().add_node_to_tier_1().tier_up(0,1)
-        self.assertSequenceEqual(sorted(g1.get_parents_for_index(2)),range(g1.tier_bounds[0],g1.find_first_empty_cell(0)))
+
+    def test_only_tier_up(self):
+        with self.assertRaises(ValueError):
+            DAGSN().tier_up(0, 1)
 
 class DAGSN_canonical(unittest.TestCase):
 

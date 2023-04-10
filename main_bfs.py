@@ -170,6 +170,8 @@ class DAGSN:
         """
         if idx1 == idx2:
             raise ValueError("Nodes for tier_up must be different.")
+        if self.nodes[idx1] == 0 or self.nodes[idx2] == 0:
+            raise ValueError("Nodes has to exist.")
         tier = self.get_tier(idx1)
         if tier != self.get_tier(idx2):
             raise ValueError("Nodes for tier_up must have same tier.")
@@ -193,7 +195,8 @@ class DAGSN:
         """
         if idx1 == idx2:
             raise ValueError("Nodes for extend must be different.")
-
+        if self.nodes[idx1] == 0 or self.nodes[idx2] == 0:
+            raise ValueError("Nodes has to exist.")
         tier = self.get_tier(idx1)
         if tier != self.get_tier(idx2)+1:
             raise ValueError(
