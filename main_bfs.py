@@ -215,22 +215,82 @@ class DAGSN:
                 new_nodes[x] |= both
 
         return DAGSN(new_nodes, self.tier_bounds)
+
+    def get_top_level_nodes(self) -> list[int]:
+        """Return the indices of top-level nodes (nodes with highest tier that don't have children)."""
+        return [idx for idx, value in enumerate(self.nodes) if value != 0 and not any(bit(value, i) for i in range(idx, len(self.nodes)))]
+
+    def get_bottom_level_nodes(self) -> list[int]:
+        """Return the indices of bottom-level nodes (all 1st-tier nodes)."""
+        return [idx for idx in range(self.tier_bounds[0], self.find_first_empty_cell(0)) if self.nodes[idx] != 0]
+
+    def get_parents_for_index(self, idx: int) -> list[int]:
+        """Return the parent node indices for a given node index."""
+        tier = self.get_tier(idx)
+        if tier == 0:
+            return []
+        return [i for i in range(self.tier_bounds[tier - 1], self.find_first_empty_cell(tier-1)) if bit(self.nodes[idx], i)]
+
+    def get_children_for_index(self, idx: int) -> list[int]:
+        """Return the child node indices for a given node index."""
+        tier = self.get_tier(idx)
+        if tier >= len(self.tier_bounds) - 2:
+            return []
+        return [i for i in range(self.tier_bounds[tier + 1], self.tier_bounds[tier+2]) if bit(self.nodes[i], idx)]
+
     def get_canonical_form(self) -> str:
         """Return the canonical form of the graph."""
-        # TODO: This method is not yet implemented
-        # Initialize an empty list to hold the ordered tiers
-        ordered_tiers = []
+        
+        def custom_sort_key(label):
+            stack = []
+            result = []
 
-        # add all first tiers indegree for connection to root node(that doesn't exist)
-        # as all first tiers are same we can write them as single value 
-        ordered_tiers.append(len([1 for node in self.nodes[self.tier_bounds[0]:self.tier_bounds[1]] if node]))
-        ordered_tiers.append('|')
-        # add sorted indegree for all next tiers
-        for tier,(start_tier, end_tier) in enumerate(zip(self.tier_bounds[1:-1], self.tier_bounds[2:])): 
-            ordered_tiers.extend(sorted([sum(bit(node,node_idx)>0 for node in self.nodes[start_tier:end_tier]) for node_idx in range(self.tier_bounds[tier],self.tier_bounds[tier+1]) if self.nodes[node_idx]])) 
-            ordered_tiers.append('|')
+            for char in label:
+                if char == "(":
+                    stack.append(char)
+                elif char == ")":
+                    stack.pop()
+                result.append((len(stack), char))
 
-        return "".join([str(node) for node in ordered_tiers])
+            return result
+
+        def propagate_labels_top_down(idx: int):
+            children = self.get_children_for_index(idx)
+            if not children:
+                return "()"
+
+            child_labels = [propagate_labels_top_down(child) for child in children]
+            child_labels.sort(key=custom_sort_key)
+            merged_labels = "".join(child_labels)
+            return "(" + merged_labels + ")"
+
+        def propagate_labels_bottom_up(idx: int, labels_top_down):
+            parents = self.get_parents_for_index(idx)
+            if not parents:
+                return labels_top_down[idx]
+
+            parent_labels = [propagate_labels_bottom_up(parent, labels_top_down) for parent in parents]
+            parent_labels.sort(key=custom_sort_key)
+            merged_labels = "".join(parent_labels)
+            return "(" + merged_labels + ")"
+
+
+        top_tier = self.get_top_level_nodes()
+        if not top_tier:
+            return ""
+
+        labels_top_down = [propagate_labels_top_down(idx) for idx in range(len(self.nodes))]
+        labels_bottom_up = [propagate_labels_bottom_up(idx, labels_top_down) for idx in range(len(self.nodes))]
+
+        merged_labels = [f"({top_down},{bottom_up})" for top_down, bottom_up in zip(labels_top_down, labels_bottom_up)]
+
+        canonical_form = ""
+        for tier_start, tier_end in zip(self.tier_bounds[:-1], self.tier_bounds[1:]):
+            tier_labels = [label for label in merged_labels[tier_start:tier_end]]
+            tier_labels.sort(key=custom_sort_key)
+            canonical_form += "".join(tier_labels)
+
+        return canonical_form
 
     def __str__(self):
         """Return a string representation of DAGSN"""
