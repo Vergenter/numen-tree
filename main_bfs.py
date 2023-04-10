@@ -1,29 +1,34 @@
-MAX_NODES=31
+MAX_NODES = 31
 INT32_MAX = 2147483647
-FIRST_TIER_NODE_VALUE= 1<<MAX_NODES
+FIRST_TIER_NODE_VALUE = 1 << MAX_NODES
 
-def bit(value:int, idx:int)->int:
+
+def bit(value: int, idx: int) -> int:
     """Return the bit value at the given index in the node value."""
-    return value&(1<<(idx))
+    return value & (1 << (idx))
 
-def insert_0_bit(value:int,idx:int)->int:
+
+def insert_0_bit(value: int, idx: int) -> int:
     """Insert a 0 bit into the specified position, shifting earlier bits left."""
     mask = (1 << idx) - 1
     # Limit to INT32_MAX to prevent Python from increasing type size.
     # This should be correct for first tiers, because they should never use insert_0_bit.
     return ((value & mask) | ((value & ~mask) << 1)) & INT32_MAX
 
+
 def count_set_bits(value: int, start_index: int, end_index: int) -> int:
     """Count the number of bits that are set for the given value from start_index (inclusive) to end_index (exclusive)."""
     mask = (1 << end_index) - (1 << start_index)
     return bin(value & mask).count('1')
 
+
 """Maximal number of nodes supported by graph"""
+
+
 class DAGSN:
     """A directed acyclic graph with support for tiering up and extending nodes."""
 
-
-    def __init__(self,nodes:list[int]=[0]*MAX_NODES,tier_bounds:list[int] = [0,2,6,14,30,MAX_NODES]):
+    def __init__(self, nodes: list[int] = [0]*MAX_NODES, tier_bounds: list[int] = [0, 2, 6, 14, 30, MAX_NODES]):
         """
         Initialize a new DAGSN instance.
 
@@ -36,62 +41,104 @@ class DAGSN:
                      The default values are calculated by the minimal number of lower tiers required for tier T,
                      defined by the equation 2**(T) and ended by MAX_NODES.
         """
-        
-        self.nodes:list[int] = nodes
-        self.tier_bounds:list[int] = tier_bounds
 
+        self.nodes: list[int] = nodes
+        self.tier_bounds: list[int] = tier_bounds
 
-    def insert_node(self,tier:int,value:int=FIRST_TIER_NODE_VALUE)-> "DAGSN":
+    def find_first_empty_cell(self, tier: int) -> int:
+        """
+        Find the index of the first empty cell (value 0) in the specified tier of nodes,
+        where an empty cell implies that all subsequent cells are also empty.
+
+        This function uses a binary search algorithm, which has a time complexity of O(log N),
+        where N is the size of the search range.
+
+        Parameters:
+        tier (int): The tier to search for the first empty cell.
+
+        Returns:
+        int: The index of the first empty cell in the specified tier. If no empty cell is found,
+             the function returns the index equal to the right boundary of the tier.
+        """
+        left = self.tier_bounds[tier]
+        right = self.tier_bounds[tier + 1]
+
+        while left < right:
+            mid = left + (right - left) // 2
+            if self.nodes[mid] == 0:
+                right = mid
+            else:
+                left = mid + 1
+
+        return left
+
+    def get_top_tier(self) -> int:
+        """Find highest tier with nodes"""
+
+        # If there are no nodes, return -1 as the highest tier
+        if not any(self.nodes):
+            return -1
+
+        left, right = 0, len(self.tier_bounds) - 2
+        while left <= right:
+            mid = (left + right) // 2
+            if self.nodes[self.tier_bounds[mid]] and not self.nodes[self.tier_bounds[mid+1]]:
+                return mid
+            elif self.nodes[self.tier_bounds[mid]]:
+                left = mid + 1
+            else:
+                right = mid - 1
+
+        # If there are no nodes in the tiers except the first one, return 0 as the highest tier
+        return 0
+
+    def insert_node(self, tier: int, value: int = FIRST_TIER_NODE_VALUE) -> "DAGSN":
         """Insert a new node into the specified tier with the given value."""
-        if tier>=len(self.tier_bounds)-1:
+        if tier >= len(self.tier_bounds)-1:
             raise ValueError("Tier too high, cannot insert node.")
         new_nodes = self.nodes.copy()
-        new_tier_bounds= self.tier_bounds.copy()
-        def is_tier_full(next_tier_bound:int, nodes:list[int]):
-            return nodes[next_tier_bound-1]>0
+        new_tier_bounds = self.tier_bounds.copy()
+
+        def is_tier_full(next_tier_bound: int, nodes: list[int]):
+            return nodes[next_tier_bound-1] > 0
         try:
-            tier_after_empty_tier_bound = next((tier_for_end_bound for tier_for_end_bound in range(tier+1,len(new_tier_bounds)) if not is_tier_full(new_tier_bounds[tier_for_end_bound],new_nodes)))
+            tier_after_empty_tier_bound = next((tier_for_end_bound for tier_for_end_bound in range(
+                tier+1, len(new_tier_bounds)) if not is_tier_full(new_tier_bounds[tier_for_end_bound], new_nodes)))
         except StopIteration:
             raise ValueError("Added too many nodes, MAX_NODES exceeded.")
         # Reserverd node limit not reached
-        if tier_after_empty_tier_bound==tier+1:
-            # Find the position to add the new node by checking if the next node is set
-            # can be optimized to binary search
-            for x in range(new_tier_bounds[tier+1]-1,new_tier_bounds[tier],-1):
-                if new_nodes[x-1]>0:
-                    new_nodes[x]=value
-                    break
-            else: 
-                # If no nodes in the tier, add the new node at the start of the tier
-                new_nodes[new_tier_bounds[tier]]= value
-        else: 
+        if tier_after_empty_tier_bound == tier+1:
+            new_nodes[self.find_first_empty_cell(tier)] = value
+        else:
             # Reserved node limit reached, move all nodes of tier+1 to make space for new node of tier
             new_node_insert_position = new_tier_bounds[tier+1]
-            for i in range(new_tier_bounds[tier_after_empty_tier_bound]-1,new_node_insert_position,-1):
+            for i in range(new_tier_bounds[tier_after_empty_tier_bound]-1, new_node_insert_position, -1):
                 if new_nodes[i-1]:
-                     # Move parents bits to work correctly with moved nodes
-                    new_nodes[i] = insert_0_bit(new_nodes[i-1],new_node_insert_position)
-            for i in range(new_tier_bounds[tier_after_empty_tier_bound],len(new_nodes)):
+                    # Move parents bits to work correctly with moved nodes
+                    new_nodes[i] = insert_0_bit(
+                        new_nodes[i-1], new_node_insert_position)
+            for i in range(new_tier_bounds[tier_after_empty_tier_bound], len(new_nodes)):
                 # Move parents bits to work correctly with moved nodes
-                new_nodes[i] = insert_0_bit(new_nodes[i],new_node_insert_position)
+                new_nodes[i] = insert_0_bit(
+                    new_nodes[i], new_node_insert_position)
             # Add new node in newly created place
-            new_nodes[new_node_insert_position]=value
-            for i in range(tier+1,tier_after_empty_tier_bound):
-                new_tier_bounds[i]+=1
-        return DAGSN(new_nodes,new_tier_bounds)
+            new_nodes[new_node_insert_position] = value
+            for i in range(tier+1, tier_after_empty_tier_bound):
+                new_tier_bounds[i] += 1
+        return DAGSN(new_nodes, new_tier_bounds)
 
-    def add_node_to_tier_1(self)-> "DAGSN":
+    def add_node_to_tier_1(self) -> "DAGSN":
         """Add a new node to the first tier of the graph."""
-        return self.insert_node(0,FIRST_TIER_NODE_VALUE)
+        return self.insert_node(0, FIRST_TIER_NODE_VALUE)
 
-    def get_tier(self,idx:int)->int:
+    def get_tier(self, idx: int) -> int:
         """Return the tier of the node at the specified index."""
-        for tier,(start,end) in enumerate(zip(self.tier_bounds,self.tier_bounds[1:])):
-            if start<=idx<end:
+        for tier, (start, end) in enumerate(zip(self.tier_bounds, self.tier_bounds[1:])):
+            if start <= idx < end:
                 return tier
         raise ValueError("Index out of tier bound ")
 
-    def check_separation(self,value:int,tier:int,nodes_count=2):
+    def check_separation(self, value: int, tier: int, nodes_count=2):
         """
         Check if the nodes at the specified tier have enough children to tier up.
 
@@ -103,14 +150,15 @@ class DAGSN:
 
         Returns: True if the nodes at the specified tier have enough children to tier up, False otherwise.
         """
-        for checked_tier in range(tier-1,-1,-1):
+        for checked_tier in range(tier-1, -1, -1):
             min_correct = nodes_count*(2**(tier-checked_tier-1))
-            count = count_set_bits(value,start_index=self.tier_bounds[checked_tier],end_index=self.tier_bounds[checked_tier+1])
-            if count<min_correct:
+            count = count_set_bits(
+                value, start_index=self.tier_bounds[checked_tier], end_index=self.tier_bounds[checked_tier+1])
+            if count < min_correct:
                 return False
         return True
 
-    def tier_up(self,idx1:int,idx2:int)-> "DAGSN":
+    def tier_up(self, idx1: int, idx2: int) -> "DAGSN":
         """
         Tier up the nodes at the specified indices.
 
@@ -120,19 +168,20 @@ class DAGSN:
 
         Returns: A new DAGSN instance with the nodes at the specified indices tiered up.
         """
-        if idx1==idx2:
+        if idx1 == idx2:
             raise ValueError("Nodes for tier_up must be different.")
         tier = self.get_tier(idx1)
-        if tier!=self.get_tier(idx2):
+        if tier != self.get_tier(idx2):
             raise ValueError("Nodes for tier_up must have same tier.")
-        both = self.nodes[idx1] | self.nodes[idx2]| (1<<idx1) | (1<<idx2)
-        NODES_COUNT_FOR_CHECKING_SEPARATION = 2 # Required number of skills for tier up check
-        if not self.check_separation(both,tier+1,NODES_COUNT_FOR_CHECKING_SEPARATION):
+        both = (self.nodes[idx1] | self.nodes[idx2] | (1 << idx1) | (1 << idx2))& INT32_MAX
+        # Required number of skills for tier up check
+        NODES_COUNT_FOR_CHECKING_SEPARATION = 2
+        if not self.check_separation(both, tier+1, NODES_COUNT_FOR_CHECKING_SEPARATION):
             raise ValueError("Nodes have not enough childrens to tier up.")
-        
-        return self.insert_node(tier+1,both)
 
-    def extend(self,idx1:int,idx2:int)-> "DAGSN":
+        return self.insert_node(tier+1, both)
+
+    def extend(self, idx1: int, idx2: int) -> "DAGSN":
         """
         Extend the node at the specified index with the node at the higher tier index.
 
@@ -142,29 +191,30 @@ class DAGSN:
 
         Returns: A new DAGSN instance with the node at the specified index extended.
         """
-        if idx1==idx2:
+        if idx1 == idx2:
             raise ValueError("Nodes for extend must be different.")
 
         tier = self.get_tier(idx1)
-        if tier!=self.get_tier(idx2)+1:
-            raise ValueError("Nodes for extend should have idx1 skill node with one tier higher than idx2.")
+        if tier != self.get_tier(idx2)+1:
+            raise ValueError(
+                "Nodes for extend should have idx1 skill node with one tier higher than idx2.")
 
-        both = self.nodes[idx1] | self.nodes[idx2] | (1<<idx2)
+        both = self.nodes[idx1] | self.nodes[idx2] | (1 << idx2)
         # parents_new_idx1 is always 3 if multiple extension from same parents is enabled
         # but currently is not
-        parents_count=count_set_bits(self.nodes[idx1],self.tier_bounds[tier-1],self.tier_bounds[tier])+1
-        if not self.check_separation(both,tier,parents_count):
+        parents_count = count_set_bits(
+            self.nodes[idx1], self.tier_bounds[tier-1], self.tier_bounds[tier])+1
+        if not self.check_separation(both, tier, parents_count):
             raise ValueError("nodes have not enough childrens to extend")
-            
+
         new_nodes = self.nodes.copy()
 
-        new_nodes[idx1]=both
-        for x in range(self.tier_bounds[tier+1],len(new_nodes)):
-            if new_nodes[x] and bit(new_nodes[x],idx1):
-                new_nodes[x]|=both
-        
-        return DAGSN(new_nodes,self.tier_bounds)
-        
+        new_nodes[idx1] = both
+        for x in range(self.tier_bounds[tier+1], len(new_nodes)):
+            if new_nodes[x] and bit(new_nodes[x], idx1):
+                new_nodes[x] |= both
+
+        return DAGSN(new_nodes, self.tier_bounds)
     def get_canonical_form(self) -> str:
         """Return the canonical form of the graph."""
         # TODO: This method is not yet implemented
