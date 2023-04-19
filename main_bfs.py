@@ -1,6 +1,7 @@
+from typing import Tuple
+
+
 MAX_NODES = 31
-INT32_MAX = 2147483647
-FIRST_TIER_NODE_VALUE = 1 << MAX_NODES
 
 
 def bit(value: int, idx: int) -> int:
@@ -11,9 +12,8 @@ def bit(value: int, idx: int) -> int:
 def insert_0_bit(value: int, idx: int) -> int:
     """Insert a 0 bit into the specified position, shifting earlier bits left."""
     mask = (1 << idx) - 1
-    # Limit to INT32_MAX to prevent Python from increasing type size.
     # This should be correct for first tiers, because they should never use insert_0_bit.
-    return ((value & mask) | ((value & ~mask) << 1)) & INT32_MAX
+    return ((value & mask) | ((value & ~mask) << 1))
 
 
 def count_set_bits(value: int, start_index: int, end_index: int) -> int:
@@ -34,7 +34,7 @@ class DAGSN:
 
         nodes: A list of ints representing the nodes in the graph.
                Each bit of an index i defines that node of index i is a parent of this node.
-               Nodes are ordered by tier, with the last bit set if the node is a first tier node.
+               Nodes are ordered by tier.
                The default state is all zeros.
 
         tier_bounds: A list of ints representing the boundaries between the different tiers of nodes.
@@ -92,7 +92,7 @@ class DAGSN:
         # If there are no nodes in the tiers except the first one, return 0 as the highest tier
         return 0
 
-    def insert_node(self, tier: int, value: int = FIRST_TIER_NODE_VALUE) -> "DAGSN":
+    def insert_node(self, tier: int, value: int) -> "DAGSN":
         """Insert a new node into the specified tier with the given value."""
         if tier >= len(self.tier_bounds)-1:
             raise ValueError("Tier too high, cannot insert node.")
@@ -129,7 +129,7 @@ class DAGSN:
 
     def add_node_to_tier_1(self) -> "DAGSN":
         """Add a new node to the first tier of the graph."""
-        return self.insert_node(0, FIRST_TIER_NODE_VALUE)
+        return self.insert_node(0, 1 << self.find_first_empty_cell(0))
 
     def get_tier(self, idx: int) -> int:
         """Return the tier of the node at the specified index."""
@@ -175,7 +175,8 @@ class DAGSN:
         tier = self.get_tier(idx1)
         if tier != self.get_tier(idx2):
             raise ValueError("Nodes for tier_up must have same tier.")
-        both = (self.nodes[idx1] | self.nodes[idx2] | (1 << idx1) | (1 << idx2))& INT32_MAX
+        both = (self.nodes[idx1] | self.nodes[idx2] |
+                (1 << idx1) | (1 << idx2))
         # Required number of skills for tier up check
         NODES_COUNT_FOR_CHECKING_SEPARATION = 2
         if not self.check_separation(both, tier+1, NODES_COUNT_FOR_CHECKING_SEPARATION):
@@ -202,7 +203,7 @@ class DAGSN:
             raise ValueError(
                 "Nodes for extend should have idx1 skill node with one tier higher than idx2.")
 
-        both = self.nodes[idx1] | self.nodes[idx2] | (1 << idx2)
+        both = (self.nodes[idx1] | self.nodes[idx2] | (1 << idx2))
         # parents_new_idx1 is always 3 if multiple extension from same parents is enabled
         # but currently is not
         parents_count = count_set_bits(
@@ -219,81 +220,40 @@ class DAGSN:
 
         return DAGSN(new_nodes, self.tier_bounds)
 
-    def get_top_level_nodes(self) -> list[int]:
-        """Return the indices of top-level nodes (nodes with highest tier that don't have children)."""
-        return [idx for idx, value in enumerate(self.nodes) if value != 0 and not any(bit(value, i) for i in range(idx, len(self.nodes)))]
-
-    def get_bottom_level_nodes(self) -> list[int]:
-        """Return the indices of bottom-level nodes (all 1st-tier nodes)."""
-        return [idx for idx in range(self.tier_bounds[0], self.find_first_empty_cell(0)) if self.nodes[idx] != 0]
-
-    def get_parents_for_index(self, idx: int) -> list[int]:
-        """Return the parent node indices for a given node index."""
-        tier = self.get_tier(idx)
-        if tier == 0:
-            return []
-        return [i for i in range(self.tier_bounds[tier - 1], self.find_first_empty_cell(tier-1)) if bit(self.nodes[idx], i)]
-
-    def get_children_for_index(self, idx: int) -> list[int]:
-        """Return the child node indices for a given node index."""
-        tier = self.get_tier(idx)
-        if tier >= len(self.tier_bounds) - 2:
-            return []
-        return [i for i in range(self.tier_bounds[tier + 1], self.tier_bounds[tier+2]) if bit(self.nodes[i], idx)]
-
     def get_canonical_form(self) -> str:
-        """Return the canonical form of the graph."""
-        
-        def custom_sort_key(label):
-            stack = []
-            result = []
+        def is_sorted(list: list[Tuple[int, int]]):
+            return all(list[i] <= list[i+1] for i in range(len(list)-1))
 
-            for char in label:
-                if char == "(":
-                    stack.append(char)
-                elif char == ")":
-                    stack.pop()
-                result.append((len(stack), char))
+        def swap_bits(value: int, order: list[Tuple[int, int]]):
+            value_cpy = value
+            for destination, (source, _) in enumerate(order, self.tier_bounds[tier]):
+                value &= ~(1 << destination)
+                value |= (source > destination) and \
+                    ((value_cpy & (1 << source)) >> (source - destination))
+                value |= (source <= destination) and \
+                    ((value_cpy & (1 << source)) << (destination-source))
+            return value
 
-            return result
-
-        def propagate_labels_top_down(idx: int):
-            children = self.get_children_for_index(idx)
-            if not children:
-                return "()"
-
-            child_labels = [propagate_labels_top_down(child) for child in children]
-            child_labels.sort(key=custom_sort_key)
-            merged_labels = "".join(child_labels)
-            return "(" + merged_labels + ")"
-
-        def propagate_labels_bottom_up(idx: int, labels_top_down):
-            parents = self.get_parents_for_index(idx)
-            if not parents:
-                return labels_top_down[idx]
-
-            parent_labels = [propagate_labels_bottom_up(parent, labels_top_down) for parent in parents]
-            parent_labels.sort(key=custom_sort_key)
-            merged_labels = "".join(parent_labels)
-            return "(" + merged_labels + ")"
-
-
-        top_tier = self.get_top_level_nodes()
-        if not top_tier:
-            return ""
-
-        labels_top_down = [propagate_labels_top_down(idx) for idx in range(len(self.nodes))]
-        labels_bottom_up = [propagate_labels_bottom_up(idx, labels_top_down) for idx in range(len(self.nodes))]
-
-        merged_labels = [f"({top_down},{bottom_up})" for top_down, bottom_up in zip(labels_top_down, labels_bottom_up)]
-
-        canonical_form = ""
-        for tier_start, tier_end in zip(self.tier_bounds[:-1], self.tier_bounds[1:]):
-            tier_labels = [label for label in merged_labels[tier_start:tier_end]]
-            tier_labels.sort(key=custom_sort_key)
-            canonical_form += "".join(tier_labels)
-
-        return canonical_form
+        new_nodes = self.nodes.copy()
+        first_empty_tier = self.get_top_tier()+1
+        first_empty_node = self.find_first_empty_cell(first_empty_tier-1)
+        are_nodes_sorted = False
+        while not are_nodes_sorted:
+            are_nodes_sorted = True
+            for tier in range(first_empty_tier):
+                sorted_indices = sorted(enumerate(
+                    new_nodes[self.tier_bounds[tier]:self.tier_bounds[tier+1]], self.tier_bounds[tier]), key=lambda x: x[1])
+                # sort must be stable!
+                are_nodes_sorted &= is_sorted(sorted_indices)
+                if not are_nodes_sorted:
+                    # reoreder first tiers by sorted_indices
+                    new_nodes[self.tier_bounds[tier]:self.tier_bounds[tier+1]
+                              ] = list(map(lambda x: x[1], sorted_indices))
+                    for i in range(0, self.tier_bounds[tier]):
+                        new_nodes[i] = swap_bits(new_nodes[i], sorted_indices)
+                    for i in range(self.tier_bounds[tier+1], self.find_first_empty_cell(first_empty_tier-1)):
+                        new_nodes[i] = swap_bits(new_nodes[i], sorted_indices)
+        return "|".join([str(node) for node in new_nodes])
 
     def __str__(self):
         """Return a string representation of DAGSN"""
