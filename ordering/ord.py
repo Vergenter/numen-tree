@@ -1,43 +1,42 @@
 import numpy as np
-from scipy.optimize import linear_sum_assignment
 
 
-def bit_difference(col1, col2):
-    return np.sum(col1 != col2)
+def best_matches(arr: np.ndarray):
+    # Step 1: Sort rows by number of set bits in row
+    arr_sorted = arr[np.argsort(np.sum(arr, axis=1))]
+    set_bits_rows = np.sum(arr_sorted, axis=1)
+
+    # Step 2: Sort columns by count of set bits in column in rows with same number of bits
+    unique_set_bits = np.unique(set_bits_rows)
+    num_unique_set_bits = unique_set_bits.size
+    col_counts = np.zeros(
+        (arr_sorted.shape[1], num_unique_set_bits), dtype=int)
+    for i in range(arr_sorted.shape[0]):
+        row_set_bits = set_bits_rows[i]
+        for j in range(arr_sorted.shape[1]):
+            col_counts[j, np.where(unique_set_bits == row_set_bits)[
+                0][0]] += arr_sorted[i, j]
+
+    order = np.lexsort([col_counts[:, i]
+                       for i in range(col_counts.shape[1] - 1, -1, -1)])
+    arr_col_optimal = arr_sorted[:, order]
+
+    # Step 3: Sort rows by number of set bits in row and by value
+    arr_with_bits = np.c_[set_bits_rows, arr_col_optimal]
+    order = np.lexsort([arr_with_bits[:, i]
+                       for i in range(arr_with_bits.shape[1] - 1, -1, -1)])
+
+    # Step 4: Return the resulting array
+    canonical = arr_col_optimal[order]
+    return canonical
 
 
-def best_matches(arr1):
-    arr1_sorted = arr1[np.argsort(np.sum(arr1, axis=1))]
+arr1 = np.array([[1, 1, 1, 1], [1, 0, 1, 1], [0, 1, 1, 1],
+                [1, 0, 1, 0], [1, 0, 0, 0]], dtype=int)
+result = best_matches(arr1)
+print(result)
 
-    n = arr1_sorted.shape[0]
-    cost_matrix = np.zeros((n, n))
-
-    for i in range(n):
-        for j in range(n):
-            target_col = np.zeros(n)
-            target_col[-(j+1):] = 1
-            cost_matrix[i, j] = bit_difference(arr1_sorted[:, i], target_col)
-    print(cost_matrix)
-    row_ind, col_ind = linear_sum_assignment(cost_matrix)
-    inverse_col_ind = np.argsort(col_ind)
-    arr1_optimal = arr1_sorted[:, inverse_col_ind]
-
-    return arr1_optimal
-    # [3,2,1,0]
-    # [0,1,2,3]
-    # [2,1,0,1]
-    # [1,0,1,2]
-    # for i in range(n):
-    #     for j in range(n):
-    #         cost_matrix[i, j] = bit_difference(
-    #             arr1_sorted_transposed[i], target_array[:, j])
-
-    # row_ind, col_ind = linear_sum_assignment(cost_matrix)
-    # arr1_optimal = arr1_sorted_transposed[col_ind].T
-
-    # return arr1_optimal
-
-
-# arr1 = np.array([[1, 1, 1, 1], [1, 0, 1, 1], [1, 0, 1, 0], [1, 0, 0, 0]])
-# result = best_matches(arr1)
-# print(result)
+arr2 = np.array([[1, 1, 1, 1], [0, 1, 1, 1], [1, 0, 1, 1],
+                [1, 0, 1, 0], [1, 0, 0, 0]], dtype=int)
+result = best_matches(arr2)
+print(result)
