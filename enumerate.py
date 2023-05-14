@@ -1,7 +1,9 @@
 from typing import Callable, Optional
 from main_bfs import DAGSN, MAX_NODES
-from nauty_canonic import get_canonical_form
+import my_canonic
+import nauty_canonic
 import time
+import numpy as np
 
 
 def enumerate_graphs(graph: DAGSN, nodes_count: Optional[int] = None):
@@ -36,7 +38,7 @@ def enumerate_graphs(graph: DAGSN, nodes_count: Optional[int] = None):
 
 def main():
     graph = DAGSN()
-    target_action_count = 13
+    target_action_count = 7
     unique_graphs: list[dict[str, DAGSN]] = [
         {"": DAGSN()}]+[dict() for _ in range(target_action_count)]
     start_time = time.monotonic()
@@ -44,12 +46,16 @@ def main():
         for graph in unique_graphs[action_number].values():
             for new_graph in enumerate_graphs(graph):
                 unique_graphs[action_number +
-                              1][get_canonical_form(new_graph)] = new_graph
+                              1][my_canonic.get_canonical_form(new_graph)] = new_graph
     end_time = time.monotonic()
     # print the elapsed time with 6 decimal places
     print(f"Elapsed time: {end_time - start_time:.6f} seconds")
 
     # Reverse d1 and d2 so that keys become values and values become keys
+    nauty = [nauty_canonic.get_canonical_form(
+        g) for g in unique_graphs[target_action_count].values()]
+    print(np.unique(nauty, return_inverse=True)[1])
+    print(np.sort(np.unique(nauty, return_index=True)[1]))
 
     for i in range(target_action_count+1):
         print(

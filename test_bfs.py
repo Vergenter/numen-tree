@@ -1,9 +1,12 @@
 import unittest
 from main_bfs import DAGSN
+import my_canonic as myc
 
 from typing import Callable, TypeVar
 
 T = TypeVar('T')
+
+canonic = myc.get_canonical_form
 
 
 def repeat(G: T, method: Callable[[T], T], n: int) -> T:
@@ -102,28 +105,28 @@ class DAGSN_canonical(unittest.TestCase):
             0, 1).add_node_to_tier_1().extend(3, 2).add_node_to_tier_1()
         g2 = DAGSN().add_node_to_tier_1().add_node_to_tier_1(
         ).add_node_to_tier_1().tier_up(0, 2).add_node_to_tier_1().extend(4, 3)
-        self.assertEqual(str(g1), str(g2))
+        self.assertEqual(canonic(g1), canonic(g2))
 
     def test_get_canonical_form_2(self):
         g3 = DAGSN().add_node_to_tier_1().add_node_to_tier_1(
         ).add_node_to_tier_1().tier_up(0, 1).tier_up(0, 1)
         g4 = DAGSN().add_node_to_tier_1().add_node_to_tier_1(
         ).add_node_to_tier_1().tier_up(0, 1).tier_up(1, 2)
-        self.assertNotEqual(str(g3), str(g4))
+        self.assertNotEqual(canonic(g3), canonic(g4))
 
     def test_get_canonical_form_3(self):
         g3 = DAGSN().add_node_to_tier_1().add_node_to_tier_1(
         ).add_node_to_tier_1().add_node_to_tier_1().tier_up(0, 1).tier_up(0, 1)
         g4 = DAGSN().add_node_to_tier_1().add_node_to_tier_1(
         ).add_node_to_tier_1().add_node_to_tier_1().tier_up(0, 1).tier_up(1, 2)
-        self.assertNotEqual(str(g3), str(g4))
+        self.assertNotEqual(canonic(g3), canonic(g4))
 
     def test_get_canonical_form_4(self):
         g1 = DAGSN().add_node_to_tier_1().add_node_to_tier_1().add_node_to_tier_1(
         ).add_node_to_tier_1().tier_up(0, 1).extend(4, 2).extend(4, 3)
         g2 = DAGSN().add_node_to_tier_1().add_node_to_tier_1(
         ).add_node_to_tier_1().add_node_to_tier_1().tier_up(0, 1).tier_up(2, 3)
-        self.assertNotEqual(str(g1), str(g2))
+        self.assertNotEqual(canonic(g1), canonic(g2))
 
     def test_get_canonical_form_5(self):
         g1 = repeat(DAGSN(), DAGSN.add_node_to_tier_1, 7)\
@@ -132,7 +135,7 @@ class DAGSN_canonical(unittest.TestCase):
         g2 = repeat(DAGSN(), DAGSN.add_node_to_tier_1, 7)\
             .tier_up(0, 1).tier_up(2, 3).tier_up(4, 5).extend(9, 6)\
             .tier_up(8, 9)  # tier_up skill with extension
-        self.assertNotEqual(str(g1), str(g2))
+        self.assertNotEqual(canonic(g1), canonic(g2))
 
     def test_get_canonical_form_6(self):
         g1 = DAGSN().add_node_to_tier_1().add_node_to_tier_1().add_node_to_tier_1().add_node_to_tier_1().add_node_to_tier_1().add_node_to_tier_1()\
@@ -142,7 +145,7 @@ class DAGSN_canonical(unittest.TestCase):
         g2 = DAGSN().add_node_to_tier_1().add_node_to_tier_1().add_node_to_tier_1().add_node_to_tier_1().add_node_to_tier_1().add_node_to_tier_1()\
             .tier_up(0, 1).tier_up(0, 1).tier_up(2, 3).tier_up(4, 5)\
             .tier_up(8, 9)  # tier_up skills that are unique
-        self.assertNotEqual(str(g1), str(g2))
+        self.assertNotEqual(canonic(g1), canonic(g2))
 
     def test_get_canonical_form_7(self):
         # test if structural differences are differenciated
@@ -151,7 +154,7 @@ class DAGSN_canonical(unittest.TestCase):
 
         g2 = DAGSN().add_node_to_tier_1().add_node_to_tier_1().add_node_to_tier_1().add_node_to_tier_1()\
             .tier_up(0, 1).extend(4, 2).tier_up(0, 2).tier_up(1, 3)  # one tier up contained in other with extension
-        self.assertNotEqual(str(g1), str(g2))
+        self.assertNotEqual(canonic(g1), canonic(g2))
 
     def test_get_canonical_form_8(self):
         # test if structural differences are differenciated between multiple tier tier3 tier to tier4 diff in tier 2
@@ -164,7 +167,7 @@ class DAGSN_canonical(unittest.TestCase):
             .tier_up(0, 1).extend(13, 2).tier_up(3, 4).tier_up(5, 6).tier_up(7, 8).tier_up(9, 10).tier_up(11, 12)\
             .tier_up(13, 14).tier_up(15, 16).tier_up(17, 18)\
             .tier_up(20, 21)  # tier up from tier ups that aren't from extended node
-        self.assertNotEqual(str(g1), str(g2))
+        self.assertNotEqual(canonic(g1), canonic(g2))
 
     def test_get_canonical_form_9(self):
         g1 = repeat(DAGSN(), DAGSN.add_node_to_tier_1, 4)\
@@ -172,19 +175,19 @@ class DAGSN_canonical(unittest.TestCase):
 
         g2 = repeat(DAGSN(), DAGSN.add_node_to_tier_1, 4)\
             .tier_up(0, 1).tier_up(0, 2).tier_up(1, 3).tier_up(2, 3)
-        self.assertNotEqual(str(g1), str(g2))
+        self.assertNotEqual(canonic(g1), canonic(g2))
 
     def test_get_canonical_form_first_tiers_differentiated(self):
         g1 = repeat(DAGSN(), DAGSN.add_node_to_tier_1, 4)
         g2 = repeat(DAGSN(), DAGSN.add_node_to_tier_1, 5)
-        self.assertNotEqual(str(g1), str(g2))
+        self.assertNotEqual(canonic(g1), canonic(g2))
 
     def test_get_canonical_form_10(self):
         g1 = repeat(DAGSN(), DAGSN.add_node_to_tier_1, 3).tier_up(
             0, 1).tier_up(0, 1).tier_up(1, 2)
         g2 = repeat(DAGSN(), DAGSN.add_node_to_tier_1, 3).tier_up(
             0, 1).tier_up(1, 2).tier_up(1, 2)
-        self.assertEqual(str(g1), str(g2))
+        self.assertEqual(canonic(g1), canonic(g2))
 
 
 class DAGSNTest(unittest.TestCase):

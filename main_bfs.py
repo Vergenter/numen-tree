@@ -1,6 +1,4 @@
 from typing import Tuple
-
-
 MAX_NODES = 31
 
 
@@ -71,6 +69,13 @@ class DAGSN:
                 left = mid + 1
 
         return left
+
+    def get_children_for_index(self, idx: int) -> list[int]:
+        """Return the child node indices for a given node index."""
+        tier = self.get_tier(idx)
+        if tier == 0:
+            return []
+        return [i for i in range(self.tier_bounds[tier-1], self.tier_bounds[tier]) if bit(self.nodes[idx], i)]
 
     def get_top_tier(self) -> int:
         """Find highest tier with nodes"""

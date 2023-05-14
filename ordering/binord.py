@@ -1,4 +1,4 @@
-import main_bfs
+
 import numpy as np
 from typing import List, Tuple
 
@@ -46,7 +46,7 @@ def minimize_binary_value(arr: np.ndarray) -> Tuple[np.ndarray, List[int], List[
                                                for x in new_variants])
         optimization_variants = [x for x in new_variants if count_zeros(
             arr[np.ix_(x[0], x[1])][i], splits) == max_zero_count]
-        # print("variants after filter", len(optimization_variants))
+        print("variants after filter", len(optimization_variants))
 
         # Update splits and sort columns
         for j in range(len(optimization_variants)):
@@ -67,35 +67,25 @@ def minimize_binary_value(arr: np.ndarray) -> Tuple[np.ndarray, List[int], List[
     return arr[np.ix_(best_rows_indices, best_columns_indices)], best_rows_indices, best_columns_indices
 
 
-def dag_to_biadjacency_matrix(graph: main_bfs.DAGSN) -> np.ndarray:
-    """Convert DAGSN graph"""
-    arr = np.zeros((32, 32), dtype=int)
-    row = 0
-    row_map = {}
-    column = 0
-    column_map = {}
-    for idx, node in enumerate(graph.nodes):
-        if node == 0:
-            continue
-        tier = graph.get_tier(idx)
-        if tier % 2 == 0:
-            row_map[idx] = row
-            # append node
-            if tier > 0:
-                for child in graph.get_children_for_index(idx):
-                    arr[row][column_map[child]] = 1
-            row += 1
-        else:
-            column_map[idx] = column
+# Example usage
+# arr = np.array([[1, 0, 1],
+#                 [0, 1, 0],
+#                 [0, 1, 0],
+#                 [1, 1, 0],], dtype=bool)
 
-            for child in graph.get_children_for_index(idx):
-                arr[row_map[child]][column] = 1
-            # apppend itself to children
-            column += 1
-    return arr[:row, :max(1, column)]
+# # minimized_arr, row_order, col_order = minimize_binary_value(arr)
+# print(minimized_arr)
 
 
-def get_canonical_form(graph: main_bfs.DAGSN) -> str:
-    """Return the canonical form of the graph using pynauty."""
-    result = str(minimize_binary_value(dag_to_biadjacency_matrix(graph))[0])
-    return result
+arr1 = np.array([[0, 1],
+                [0, 1],
+                 [1, 0],
+                 [1, 1]], dtype=bool)
+minimized_arr, row_order, col_order = minimize_binary_value(arr1)
+print(minimized_arr)
+arr2 = np.array([[0, 1],
+                [1, 1],
+                 [1, 0],
+                 [1, 0]], dtype=bool)
+minimized_arr, row_order, col_order = minimize_binary_value(arr2)
+print(minimized_arr)

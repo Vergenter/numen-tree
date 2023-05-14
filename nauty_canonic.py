@@ -4,7 +4,9 @@ from main_bfs import DAGSN
 
 def dag_to_pynauty(graph: DAGSN) -> pynauty.Graph:
     """Convert DAGSN graph to networkx.DiGraph."""
-
+    vertex_coloring = [{idx for tier in range(0, graph.get_top_tier()+1, 2) for idx in range(graph.tier_bounds[tier], graph.find_first_empty_cell(
+        tier))}, {idx for tier in range(1, graph.get_top_tier()+1, 2) for idx in range(graph.tier_bounds[tier], graph.find_first_empty_cell(
+            tier))}]
     vertex_coloring = [{idx for idx in range(graph.tier_bounds[tier], graph.find_first_empty_cell(
         tier))} for tier in range(graph.get_top_tier()+1)]
 
