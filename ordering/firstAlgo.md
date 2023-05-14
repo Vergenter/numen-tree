@@ -228,6 +228,46 @@ sort columns lexicographically treating sum of indices values for same_bit_set_r
 lexsort rows by binary_repr_of_row, set_bits_rows
 canonic form
 
+It doesn't work because:
+[[0 0 0 1]
+ [0 1 0 1]
+ [1 0 1 0]
+ [1 1 1 0]]
+[[0 0 0 1]
+ [0 0 1 1]
+ [1 1 0 0]
+ [1 1 1 0]]
+
+Simple solution sort lexographicaly columns
+Is it possible that lexographicall sort of column would be destoryed by rows sort? yes
+More important can because of it two graph have different form? yes
+Then I'm looking for two graphs after first step being different by swap and giving different result.
+
+
+equal columns
+ [0 0 0 1]
+ [0 1 0 1]
+ [1 0 1 0]
+ [0 1 0 1]
+ [1 0 1 0]
+changes to this
+ [0 0 0 1]
+ [0 0 1 1]
+ [0 0 1 1]
+ [1 1 0 0]
+ [1 1 0 0]
+ 
+ [0 0 0 1]
+ [1 0 1 0]
+ [1 0 1 0]
+ [0 1 0 1]
+ [0 1 0 1]
+changes to this
+ [0 0 0 1]
+ [0 1 1 0]
+ [0 1 1 0]
+ [1 0 0 1]
+ [1 0 0 1]
 #### why I think it works
 
 Sort rows by set bits count -> stabilizes next sorting
