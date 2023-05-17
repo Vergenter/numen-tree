@@ -1,6 +1,5 @@
 from typing import Tuple
 import numpy as np
-import numpy as np
 
 
 def subtract_arrays(a: np.ndarray, b: np.ndarray, L: np.ndarray) -> np.ndarray:
@@ -26,16 +25,20 @@ def subtract_arrays(a: np.ndarray, b: np.ndarray, L: np.ndarray) -> np.ndarray:
 
 def add_arrays(a: np.ndarray, b: np.ndarray, L: np.ndarray) -> np.ndarray:
     result = np.zeros_like(a)
-    carry = np.zeros_like(a)
+    carry = 0
 
     for i in range(a.shape[0]-1, -1, -1):
-        summation = a[i] + b[i] + carry[i]
+        summation = a[i] + b[i] + carry
 
-        if summation > L[i]:
-            raise ValueError("Addition would result in value exceeding limit")
+        if summation >= L[i]:
+            carry = 1
+            result[i] = summation - L[i]
+        else:
+            carry = 0
+            result[i] = summation
 
-        carry[i-1] = summation // (L[i] + 1)
-        result[i] = summation % (L[i] + 1)
+    if carry > 0:
+        raise ValueError("Addition would result in value exceeding limit")
 
     return result
 
@@ -159,13 +162,13 @@ def solve_rectangular_linear_sum_assignment(cost_matrix: np.ndarray, maximize: b
         return np.arange(nr), col4row
 
 
-cost_matrix = np.array([
-    [[1, 2, 1], [2, 3, 1], [4, 1, 3]],
-    [[4, 5, 6], [11, 18, 3], [5, 4, 6]],
-    [[7, 5, 9], [8, 9, 7], [23, 7, 9]]
-])
+# cost_matrix = np.array([
+#     [[1, 2, 1], [2, 3, 1], [4, 1, 3]],
+#     [[4, 5, 6], [11, 18, 3], [5, 4, 6]],
+#     [[7, 5, 9], [8, 9, 7], [23, 7, 9]]
+# ])
 
-print(solve_rectangular_linear_sum_assignment(cost_matrix))
+# print(solve_rectangular_linear_sum_assignment(cost_matrix))
 # array([1, 2, 0]
 # [2, 3, 1]+[5, 4, 6]+[7, 5, 9]=14,12,16
 # x, 1, 2
@@ -173,3 +176,18 @@ print(solve_rectangular_linear_sum_assignment(cost_matrix))
 # 0, 2, 1 <=> [1, 2, 1]+[5, 4, 6]+[8, 9, 7]=14,15,14
 # 2, 0, 1 <=> [4, 1, 3]+[4, 5, 6]+[8, 9, 7]=16,15,16
 # 1, 2, 0 <=> [2, 3, 1]+[5, 4, 6]+[7, 5, 9]=14,12,16
+
+
+# cost_matrix = np.array([[[0, 0, 0, 2, 0, 0],
+#                          [0, 0, 0, 0, 2, 0],
+#                          [0, 0, 0, 0, 0, 2]],
+
+#                         [[1, 0, 0, 1, 0, 0],
+#                          [0, 1, 0, 0, 1, 0],
+#                          [0, 0, 1, 0, 0, 1]],
+
+#                         [[1, 0, 0, 1, 0, 0],
+#                          [0, 1, 0, 0, 1, 0],
+#                          [0, 0, 1, 0, 0, 1]]])
+
+# print(solve_rectangular_linear_sum_assignment(cost_matrix))
