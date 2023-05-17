@@ -50,7 +50,7 @@ def min_array(arrays: np.ndarray) -> np.ndarray:
 
 def calculate_L(cost_matrix: np.ndarray) -> np.ndarray:
     L = np.max(cost_matrix, axis=1)
-    return np.sum(L, axis=0)
+    return np.sum(L, axis=0)+1
 
 
 def augmenting_path(nc: int, cost: np.ndarray, u: np.ndarray, v: np.ndarray, path: np.ndarray, row4col: np.ndarray,
@@ -191,3 +191,5 @@ def solve_rectangular_linear_sum_assignment(cost_matrix: np.ndarray, maximize: b
 #                          [0, 0, 1, 0, 0, 1]]])
 
 # print(solve_rectangular_linear_sum_assignment(cost_matrix))
+
+

@@ -1,5 +1,5 @@
 import numpy as np
-from hungarian import solve_rectangular_linear_sum_assignment
+from ordering.hungarian import solve_rectangular_linear_sum_assignment
 
 
 def get_cost(col: np.ndarray, column_index: int, width: int, cost_size: int, indices_where_cost_change: np.ndarray) -> np.ndarray:
@@ -35,7 +35,8 @@ def get_minimized(arr: np.ndarray):
                 arr_sorted[:, i], j, width, cost_size, indices_where_cost_change)
 
     row4col, col4row = solve_rectangular_linear_sum_assignment(cost_matrix)
-    arr_sorted_with_columns = arr_sorted[:, col4row]
+    inverse_col_ind = np.argsort(col4row)
+    arr_sorted_with_columns = arr_sorted[:, inverse_col_ind]
 
     binary_values = np.packbits(
         arr_sorted_with_columns, axis=1).flatten()
@@ -56,11 +57,3 @@ def get_minimized(arr: np.ndarray):
 #        [1, 0, 1],
 #        [1, 1, 1]])
 
-
-print(get_minimized(np.array([[0, 1, 1],
-                              [1, 0, 0],
-                              [1, 1, 1]])))
-
-print(get_minimized(np.array([[0, 1, 0],
-                              [1, 0, 1],
-                              [1, 1, 1]])))
