@@ -38,7 +38,7 @@ def enumerate_graphs(graph: DAGSN, nodes_count: Optional[int] = None):
 
 def main():
     graph = DAGSN()
-    target_action_count = 7
+    target_action_count = 8
     unique_graphs: list[dict[str, DAGSN]] = [
         {"": DAGSN()}]+[dict() for _ in range(target_action_count)]
     start_time = time.monotonic()
@@ -54,7 +54,8 @@ def main():
     # Reverse d1 and d2 so that keys become values and values become keys
     nauty = [nauty_canonic.get_canonical_form(
         g) for g in unique_graphs[target_action_count].values()]
-    print(np.unique(nauty, return_inverse=True)[1])
+    
+    print([i for i, x in enumerate(np.unique(nauty, return_counts=True)[1]) if x > 1])
     print(np.sort(np.unique(nauty, return_index=True)[1]))
 
     for i in range(target_action_count+1):

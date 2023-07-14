@@ -1,0 +1,199 @@
+IMPLEMENTATION
+In this section, we describe how we implement the five
+state-of-the-art algorithms in a common framework. For
+this purpose, we introduce a generic subgraph isomorphism
+algorithm so that each algorithm can be implemented by
+extending this generic algorithm according to its specifics.
+3.1 Generic Subgraph Isomorphism Algorithm
+The generic subgraph isomorphism algorithm is implemented as a backtracking algorithm [7] which finds solutions
+by incrementing partial solutions or abandoning them when
+it determines they cannot be completed.
+Algorithm 1 shows a generic subgraph isomorphism algorithm, GenericQueryProc. Its inputs are a query graph
+q and a data graph g, and its output is a set of subgraph
+isomorphisms (or embeddings) of q in g. Here, to represent
+an embedding, we use a list M of pairs of a query vertex
+and a corresponding data vertex.
+For each vertex u in q, GenericQueryProc first invokes
+FilterCandidates to find a set of candidate vertices C(u)
+(⊆ V(g)) such that L(u) ⊆ L(v) (Line 3). Note that we
+place logical expressions in double square brackets to show
+the necessary post-conditions for each subroutine. If C(u)
+is empty, we can safely exit, making early termination possible (Line 5). After that, GenericQueryProc invokes a
+recursive subroutine, SubgraphSearch, to find mapping
+pairs of a query vertex and matching data vertices at a time
+(Line 8). Note that SubgraphSearch of SPath matches
+one query path at a time for each recursive call.
+SubgraphSearch Subroutine
+SubgraphSearch takes as parameters a query graph q, a
+data graph g, and a partial embedding M and reports all
+embeddings of q in g.
+The recursion stops when the algorithm finds the complete
+solution (i.e., when |M| = |V (q)|) (Line 1). Otherwise, the
+algorithm calls NextQueryVertex to select a query vertex
+u ∈ V(q) which is not yet matched (Line 4). After that, it
+calls RefineCandidates to obtain a refined candidate vertex set CR from C(u) by using algorithm-specific pruning
+rules (Line 5). Next, for each candidate data vertex v ∈ CR
+such that v is not matched yet, the IsJoinable subroutine
+checks whether the edges between u and already matched
+query vertices of q have corresponding edges between v and
+already matched data vertices of g (Line 7). If v is qualified,
+it is matched to u, and SubgraphSearch updates status
+information by calling UpdateState (Line 9), and the algorithm proceeds to match the remaining query vertices of
+q by recursively calling SubgraphSearch (Line 10). Next,
+all changes done by UpdateState are restored by calling
+RestoreState (Line 11). The algorithm terminates when
+all possible embeddings are found.
+Algorithm 1 GenericQueryProc
+Input: query graph q
+Input: data graph g
+Output: all subgraph isomorphisms of q in g
+1: M := ∅;
+2: for each u ∈ V(q) do
+3: C(u) := FilterCandidates (q, g, u, . . .);
+[[ ∀v ∈ C(u)((v ∈ V(g)) ∧ (L(u) ⊆ L(v))) ]]
+4: if C(u) = ∅ then
+5: return;
+6: end if
+7: end for
+8: SubgraphSearch (q, g, M, . . .);
+Subroutine SubgraphSearch (q, g, M, . . .)
+1: if |M| = |V (q)| then
+2: report M;
+3: else
+4: u := NextQueryVertex (. . .);
+[[ u ∈ V(q) ∧ ∀(u, v) ∈ M(u = u) ]]
+5: CR := RefineCandidates (M, u, C(u), . . .);
+[[ CR ⊆ C(u) ]]
+6: for each v ∈ CR such that v is not yet matched do
+7: if IsJoinable (q, g, M, u, v, . . .) then
+8: [[ ∀(u, v) ∈ M((u, u) ∈ E(q) =⇒
+(v, v) ∈ E(g) ∧ L(u, u) = L(v, v)) ]]
+9: UpdateState (M, u, v, . . .);
+[[ (u, v) ∈ M ]]
+10: SubgraphSearch (q, g, M, . . .);
+11: RestoreState (M, u, v, . . .);
+[[ (u, v) ∈/ M ]]
+12: end if
+13: end for
+14: end if
+The SPath algorithm grows partial solutions with one
+path at a time rather than a vertex at a time. Thus, although our generic recursive algorithm accommodates the
+characteristics of SPath, we will explain SPath separately in
+Section 3.7 for ease of understanding.
+Common Graph Storage
+Depending on the size of a data graph, we store the graph
+as a tuple in a heap file or a large object in a BLOB file as
+in iGraph. We also use a B+-tree to efficiently find a data
+graph using a graph ID.
+For each subgraph isomorphism algorithm, we tune the
+disk representation of a data graph in order to support fast
+retrieval and construction of its main memory data structures. In subsequent subsections, we describe data structures for each method.
+1353.2 Ullmann Algorithm
+FilterCandidates: FilterCandidates returns a set of
+data graph vertices with a matching label u.
+NextQueryVertex: NextQueryVertex returns one vertex at a time from the vertices in the order they appear in
+the input. It is clear that the performance of the Ullmann
+algorithm highly depends on the input order of the query
+vertices. We will describe this issue in detail when we describe the NextQueryVertex function of VF2.
+RefineCandidates: RefineCandidates prunes out all candidate vertices v ∈ C(u) that have a smaller degree than u.
+IsJoinable: IsJoinable iterates through all adjacent query
+vertices of u. If the adjacent query vertex u is already
+matched, i.e., (u, v) ∈ M, then it checks whether there is
+a corresponding edge (v, v) in the data graph. Note that,
+since IsJoinable is called in a most inner loop, we must
+carefully design this function. If there is no edge between
+u and already matched query vertices, we can optimize this
+process by skipping this checking process. Such optimization will be explained in IsJoinable of QuickSI.
+UpdateState, RestoreState: UpdateState appends a
+pair (u, v) to M while RestoreState restores M by removing the pair (u, v) from M.
+In the following algorithms, we describe only the subroutines which are different from those in Ullmann.
+3.3 VF2 Algorithm
+NextQueryVertex: Unlike Ullmann, VF2 starts with the
+first vertex and selects a vertex connected from the already
+matched query vertices. Note that the original VF2 algorithm does not define any order in which query vertices are
+selected.
+RefineCandidates: VF2 uses the following three pruning
+rules to prune out data vertex candidates: (1) Prune out
+any vertex v in C(u) such that v is not connected from
+already matched data vertices; (2) Let Mq and Mg be a set
+of matched query vertices and a set of matched data vertices,
+respectively. Let Cq and Cg be a set of adjacent and notyet-matched query vertices connected from Mq and a set of
+adjacent and not-yet-matched data vertices connected from
+Mg
+, respectively. Let adj(u) be a set of adjacent vertices to
+a vertex u. Then, prune out any vertex v in C(u) such that
+|Cq ∩ adj(u)| > |Cg ∩ adj(v)|; (3) prune out any vertex v in
+C(u) such that |adj(u) \ Cq \ Mq| > |adj(v) \ Cg \ Mg|.
+For example, consider again the query graph q and the
+data graph g from Figure 2. Suppose that the current partial solution M = {(u1, v4)} and that u2 is the next vertex returned by NextQueryVertex with C(u2) = {v2, v5,
+v7, v8}. Then, Mq = {u1}, Mg = {v4}, Cq = {u2, u4},
+C
+g = {v1, v2, v5, v8}. The RefineCandidates subroutine
+prunes out v7 using the pruning rule (1), because v7 is
+not connected to any vertex in Mg. The subroutine also
+prunes out v8 from C(u2) using the pruning rule (2), since
+adj(u2) ∩ Cq = {u4} and adj(v8) ∩ Cg = {}. The subroutine
+prunes out v2 from C(u2) using the pruning rule (3) since
+adj(u2) \ Cq \ Mq = {u3} and adj(v2) \ Cg \ Mg = {}.
+Improvements
+We note that the matching order driven by NextQueryVertex significantly impacts the query performance by reducing
+the size of the recursive call tree. For instance, consider the
+query and data graphs from Figure 2. If we match query
+vertices in order (u1, u2, u3, u4), SubgraphSearch of the
+generic algorithm is called 14 times (Figure 3(b)). However,
+if we match query vertices in order (u1, u4, u2, u3), SubgraphSearch is called 12 times (see Figure 3(a)). Note
+that in both cases, at least eight recursive calls are necessary to output two complete solutions.
+u3:
+u2:
+u4:
+u1:
+v v4 X
+1
+v3 v6 v5 v9 O
+v1 X
+v4
+v3 v5 v9 O
+v6
+(a) matching order (u1, u4, u3,
+u4).
+u4:
+u3:
+u2:
+u1:
+X
+v1
+v v5 v9 v6 O
+3 X
+v2
+v5 v9 X
+X
+v8
+v4
+v5 v9 v3 O
+v6
+(b) matching order (u1,
+u2, u3, u4).
+Figure 3: Recursion trees using the generic subgraph isomorphism algorithm for the query and data
+graphs in Figure 2.
+The original VF2 version used in iGraph uses a reordering technique which sorts query vertices by the frequency of
+the query vertex label and then feeds these reordered query
+vertices as input to VF2. This technique could be effective
+when the reordered vertex sequence is similar to the one ordered by the frequency of the data vertex label. We also
+optimize the original VF2 version in several ways: 1) On
+comparing labels of two vertices, we directly compare the
+label IDs (i.e., integer comparison) of those vertices instead
+of calling expensive virtual function calls. 2) By exploiting
+the inverse vertex label list, we accelerate the search performance of finding vertices having a given vertex label. 3)
+When returning from each recursive call, Cq and Cg must be
+restored. By maintaining additional stacks, this process can
+also be accelerated efficiently. By putting these optimizations including the reordering technique all together, our
+VF2 version outperforms the original by up to 29.86 times.
+Disk Representation
+VF2 represents a graph using three structures: 1) vertex label list that allows access to the ordered vertex label list of
+a vertex by a given ID (see Figure 4(a)); 2) inverse vertex
+label list that allows access to the ordered vertex ID list by
+a given vertex label (see Figure 4(b)); and 3) adjacency lists
+(see Figure 4(c)) of each vertex which store adjacency information, i.e., a list of pairs (vertex ID, edge label) ordered by
+the vertex ID. Note that we materialize the inverse vertex
+label list in the graph database for speedup, although it can
+be constructed from the vertex label list
